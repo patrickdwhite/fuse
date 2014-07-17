@@ -1,4 +1,4 @@
-#!/usr/bin/rdmd -unittest 
+#!/usr/bin/env rdmd -unittest 
 module fuse.util;
 import std.stdio;
 import std.traits;
