@@ -1,6 +1,9 @@
 module fuse.fuse;
-import fuse.util;
+//import fuse.util;
+import std.traits;
+import std.algorithm;
 import std.bitmanip;
+import std.array;
 import core.stdc.config;
 import core.sys.posix.sys.types;
 public import core.sys.posix.sys.statvfs;
@@ -252,7 +255,7 @@ interface FuseOperationsInterface {
 	 * Introduced in version 2.3
 	 * Changed in version 2.6
 	 */
-	void init (fuse_conn_info *conn, in ref AccessContext context);
+	void* init (fuse_conn_info *conn, in ref AccessContext context);
 
 	/**
 	 * Clean up filesystem
@@ -407,6 +410,38 @@ interface FuseOperationsInterface {
 	bool isNullPathOk() @property;
 }
 
+static string createDefaultImpl(T)() {
+  string result;
+  foreach(m; __traits(allMembers, T)) {
+    static if (!m.startsWith("flag") && !m.startsWith("_") ){
+      alias ReturnType!(__traits(getMember, T, m)) ret_type;
+      result ~= ret_type.stringof ~ " ";
+      result ~= m ~ " ";
+      alias ParameterTypeTuple!(__traits(getMember, T, m)) params;
+      static if (m == "read") {
+        result ~= "(in char[], ubyte[], ulong, long, fuse_file_info*)";
+      } else static if (m == "readdir") {
+	      result ~= "(in char[] , void *, fuse_fill_dir_t, off_t,	fuse_file_info *)";
+      } else {
+        result ~= params.stringof;
+      }
+      static if (__traits(isArithmetic, ret_type)) {
+        result ~= " { return -ENOSYS; }";
+      } else static if (m == "init") { 
+        result ~= " { return cast(void*)this; }";
+      } else {
+        result ~= " { }";
+      }
+    }
+    result ~= "\n";
+  }
+  return result.replace("const(char*)", "in char[]");
+}
+
+class DefaultFileSystem {
+  mixin(createDefaultImpl!fuse_operations);
+}
+
 version(unittest) {
 import std.stdio;
 
@@ -414,18 +449,18 @@ import std.stdio;
 /**
  * Derive from FuseOperations, if you want to have predefined methods, which simply spit out a not implemented error.
 */ 
-mixin(createImplementation!(FuseOperationsInterface, "FuseOperations")());
+//mixin(createImplementation!(FuseOperationsInterface, "FuseOperations")());
 //void main() {
 	//writefln("Created impl:\n%s", createImplementation!(FuseOperationsInterface, "FuseOperations")());
 //}
 
-int fuse_main(const(char[])[] args, FuseOperationsInterface operations) {
+int fuse_main(const(char[])[] args, DefaultFileSystem operations) {
 	const(char)*[] c_args=new const(char)*[](args.length);
 	foreach(i, arg; args) 
 		c_args[i]=arg.ptr;
-	mixin(initializeFuncPtrStruct!(fuse_operations, "my_operations", "deimos_d_fuse_safe_")());
-	my_operations.flag_nullpath_ok=operations.isNullPathOk;
-	return fuse_main_real(cast(int)c_args.length, c_args.ptr, &my_operations, my_operations.sizeof, cast(void*) operations);
+	//mixin(initializeFuncPtrStruct!(fuse_operations, "my_operations", "deimos_d_fuse_safe_")());
+	//my_operations.flag_nullpath_ok=operations.isNullPathOk;
+	//return fuse_main_real(cast(int)c_args.length, c_args.ptr, &my_operations, my_operations.sizeof, cast(void*) operations);
 //	mixin(initializeFuncPtrStruct!(fuse_operations, "my_operations", "deimos_d_fuse_")());
 //	debug(fuse) writefln("Initialize struct: ");
 //	debug(fuse) writefln(initializeFuncPtrStruct!(fuse_operations, "my_operations", "deimos_d_safe_")());
@@ -692,11 +727,11 @@ struct fuse_conn_info {
 	 */
 	uint[25] reserved;
 }
-mixin(createSafeWrappers!(fuse_operations, "deimos_d_fuse_")());
-unittest {
-	writefln("Wrappers: %s", (createSafeWrappers!(fuse_operations, "deimos_d_fuse_")()));
-}
-	
+//mixin(createSafeWrappers!(fuse_operations, "deimos_d_fuse_")());
+//unittest {
+//	writefln("Wrappers: %s", (createSafeWrappers!(fuse_operations, "deimos_d_fuse_")()));
+//}
+	/*
 void deimos_d_fuse_getattr (in char*  path, stat_t * info) {
 	auto context=fuse_get_context();
 	auto ops=cast(FuseOperationsInterface)context.private_data;
@@ -943,3 +978,4 @@ fuse_pollhandle *ph, uint *reventsp) {
 	auto ops=cast(FuseOperationsInterface)context.private_data;
 	return ops.poll(cString2DString(path), info, ph, reventsp, AccessContext(context));
 }
+*/
