@@ -1,0 +1,11 @@
+{
+  "name": "fuse",
+  "description": "FUSE (Filesystem in USErspace.",
+  "copyright": "Copyright © 2014, Patrick White",
+  "authors": ["patrick@patrickwhite.org"],
+  "libs-linux": ["fuse"],
+  "libs-osx": ["osxfuse"],
+  "lflags-osx": ["-L/usr/local/Cellar/osxfuse/2.6.4/lib"],
+  "dependencies": {
+  }
+}

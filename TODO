@@ -1,3 +1,0 @@
-- Test if incompatible structure definitions are detected by the linker!
-	- Check fuse_operations struct bitfield size.
-- Go through all parameters in FuseOperationsInterface and add unknown types.
