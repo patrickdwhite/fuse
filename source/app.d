@@ -6,7 +6,8 @@ import std.stdio;
 import std.exception;
 enum O_RDONLY=0;
 class HelloFs : DefaultFileSystem {
-	override int getattr (in char* path, stat_t* stbuf) {
+	override int getattr (in char* c_path, stat_t* stbuf) {
+    string path = to!string(c_path);
 		memset(stbuf, 0, stat_t.sizeof);
 		if(path=="/") {
 			stbuf.st_mode = S_IFDIR | octal!755;
@@ -22,7 +23,7 @@ class HelloFs : DefaultFileSystem {
 		}
     return -ENOENT;
 	}
-	override int readdir (in char[] path, void* buf, fuse_fill_dir_t filler, off_t offset, fuse_file_info *info) {
+	override int readdir (in char* path, void* buf, fuse_fill_dir_t filler, off_t offset, fuse_file_info *info) {
 		if(path!="/") {
       return -ENOENT;
 		}
@@ -32,7 +33,8 @@ class HelloFs : DefaultFileSystem {
 		filler(buf, hello_path.ptr+1, null, 0);
     return 0;
 	}
-	override int open (in char* path, fuse_file_info *info) {
+	override int open (in char* c_path, fuse_file_info *info) {
+    string path = to!string(c_path);
 		if(path!=hello_path) {
       return -ENOENT;
 		}
@@ -43,15 +45,16 @@ class HelloFs : DefaultFileSystem {
     return 0;
 	}
   //int read (in char[], ubyte*, ulong, long, fuse_file_info*) { return -ENOSYS; }
-	override int read (in const(char)[] path, ubyte[] readbuf, size_t size, off_t offset, fuse_file_info* info) {
+	override int read (in char* c_path, ubyte* readbuf, size_t size, off_t offset, fuse_file_info* info) {
+    string path = to!string(c_path);
 		if(path!=hello_path) {
 			return -ENOENT;
 		}
-		writefln("Passed buf length: %s", readbuf.length);
+		writefln("Passed buf length: %s", size);
 		writefln("Passed offset: %s", offset);
 		size_t len = hello_str.length-cast(size_t)offset; // Cast save, hello world will never be larger than 2GB.
 		writefln("from hello left: %s", len);
-		len = readbuf.length>len ? len : readbuf.length;
+		len = size > len ? len : size;
 		writefln("Actually copying: %s", len);
 		if(offset<hello_str.length && offset>=0) {
 			readbuf[0..len]=cast(immutable(ubyte)[])hello_str[cast(size_t)offset..len];

@@ -408,16 +408,16 @@ interface FuseOperationsInterface {
 	 * Introduced in version 2.8
 	 */
 	int poll (in const(char)[] path, fuse_file_info *info,	fuse_pollhandle *ph, uint *reventsp, in ref AccessContext context);
-	bool isNullPathOk() @property;
+  //bool isNullPathOk() @property { return false; }
 }
 
 static string cleanParamsAsString(T, string fname)() {
   alias ParameterTypeTuple!(__traits(getMember, T, fname)) params;
   string result;
   static if (fname == "read") {
-    result ~= "(in char[], ubyte[], ulong, long, fuse_file_info*)";
+    result ~= "(in char*, ubyte*, ulong, long, fuse_file_info*)";
   } else static if (fname == "readdir") {
-    result ~= "(in char[] , void *, fuse_fill_dir_t, off_t,	fuse_file_info *)";
+    result ~= "(in char*, void *, fuse_fill_dir_t, off_t, fuse_file_info *)";
   } else {
     result ~= params.stringof;
   }
@@ -448,7 +448,7 @@ static string createShimStruct(T, string sname)() {
   string result = format("fuse_operations %s = {\n", sname);
   foreach(m; __traits(allMembers, T)) {
     static if (!m.startsWith("flag") && !m.startsWith("_") ){
-      result ~= format("%s: &%s%s;\n", m, shim_prefix, m);
+      result ~= format("%s: &%s%s,\n", m, shim_prefix, m);
     }
   }
   return result ~ "};\n";
@@ -485,11 +485,23 @@ static string createDefaultImpl(T)() {
   return result;
 }
 
+static string createFuseStruct(T, string name, string pfx)() {
+  string result = format("%s %s = %s(", T.stringof, name, T.stringof);
+  foreach(m; __traits(allMembers, T)) {
+    static if (!m.startsWith("flag") && !m.startsWith("_") ){
+      result ~= format("&%s%s", pfx, m);
+      if (m != (__traits(allMembers, T))[$-1]) result ~= ", ";
+    }
+  }
+  return result ~ ");";
+}
+
 pragma(msg, createDefaultImpl!fuse_operations);
 mixin(createShimsFromStruct!fuse_operations);
 
 class DefaultFileSystem {
   mixin(createDefaultImpl!fuse_operations);
+	bool isNullPathOk() @property { return false; }
 }
 
 version(unittest) {
@@ -509,7 +521,8 @@ int fuse_main(const(char[])[] args, DefaultFileSystem operations) {
 	foreach(i, arg; args) 
 		c_args[i]=arg.ptr;
   //mixin( createShimStruct!(fuse_operations, "fuseops"));
-  fuse_operations fuseops = fuse_operations(&shim_fuse_to_getattr, &shim_fuse_to_readlink, &shim_fuse_to_getdir);
+  //fuse_operations fuseops = fuse_operations(&shim_fuse_to_getattr, &shim_fuse_to_readlink, &shim_fuse_to_getdir);
+  mixin(createShimStruct!(fuse_operations, "fuseops"));
   fuseops.flag_nullpath_ok = operations.isNullPathOk;
   return fuse_main_real(cast(int)c_args.length, c_args.ptr, &fuseops, fuseops.sizeof, cast(void*)operations);
 	//mixin(initializeFuncPtrStruct!(fuse_operations, "my_operations", "deimos_d_fuse_safe_")());
@@ -521,7 +534,6 @@ int fuse_main(const(char[])[] args, DefaultFileSystem operations) {
 //	
 //	my_operations.flag_nullpath_ok=operations.isNullPathOk;
 //	return fuse_main_real(cast(int)c_args.length, c_args.ptr, &my_operations, my_operations.sizeof, cast(void*) operations);
-	return 0;
 }
 
 extern(C):
