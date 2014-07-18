@@ -6,7 +6,7 @@ import std.stdio;
 import std.exception;
 enum O_RDONLY=0;
 class HelloFs : DefaultFileSystem {
-	override int getattr (in char[] path, stat_t* stbuf) {
+	override int getattr (in char* path, stat_t* stbuf) {
 		memset(stbuf, 0, stat_t.sizeof);
 		if(path=="/") {
 			stbuf.st_mode = S_IFDIR | octal!755;
@@ -32,7 +32,7 @@ class HelloFs : DefaultFileSystem {
 		filler(buf, hello_path.ptr+1, null, 0);
     return 0;
 	}
-	override int open (in const(char)[] path, fuse_file_info *info) {
+	override int open (in char* path, fuse_file_info *info) {
 		if(path!=hello_path) {
       return -ENOENT;
 		}
