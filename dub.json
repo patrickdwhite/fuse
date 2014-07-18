@@ -6,7 +6,18 @@
   "libs-linux": ["fuse"],
   "libs-osx": ["osxfuse"],
   "lflags-osx": ["-L/usr/local/Cellar/osxfuse/2.6.4/lib"],
-  "targetName": "hello",
+  "configurations": [
+    {
+      "name": "example-hello",
+      "targetType": "executable",
+      "targetName": "hello",
+    },
+    {
+      "name": "libfuse",
+      "targetType": "library",
+      "excludedSourceFiles": ["source/app.d"],
+    },
+  ],
   "dependencies": {
   }
 }
