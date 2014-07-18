@@ -1,6 +1,7 @@
 module fuse.fuse;
 //import fuse.util;
 import std.traits;
+import std.string;
 import std.algorithm;
 import std.bitmanip;
 import std.array;
@@ -410,21 +411,45 @@ interface FuseOperationsInterface {
 	bool isNullPathOk() @property;
 }
 
+static string cleanParamsAsString(T, string fname)() {
+  alias ParameterTypeTuple!(__traits(getMember, T, fname)) params;
+  string result;
+  static if (fname == "read") {
+    result ~= "(in char[], ubyte[], ulong, long, fuse_file_info*)";
+  } else static if (fname == "readdir") {
+    result ~= "(in char[] , void *, fuse_fill_dir_t, off_t,	fuse_file_info *)";
+  } else {
+    result ~= params.stringof;
+  }
+  return result;
+}
+
+static string createFuseShims(T, string fname)() {
+  alias ReturnType!(__traits(getMember, T, fname)) ret_type;
+  alias ParameterTypeTuple!(__traits(getMember, T, fname)) params;
+  string result = format("extern (C) %s shim_fuse_to_%s", ret_type.stringof, fname);
+  result ~= cleanParamsAsString!(T, fname) ~ " { ";
+  result ~= "auto context=fuse_get_context();\n";
+  result ~= "auto ops=cast(DefaultFileSystem)context.private_data;\n";
+  result ~= format("return ops.%s", fname);
+  result ~= "(";
+  foreach(i, n; params) {
+    result ~= format("_param_%d", i);
+    if (i != params.length - 1) result ~= ", ";
+  }
+  result ~= "); }";
+  return result;
+}
+
+pragma(msg, (createFuseShims!(fuse_operations, "readdir")));
+
 static string createDefaultImpl(T)() {
   string result;
   foreach(m; __traits(allMembers, T)) {
     static if (!m.startsWith("flag") && !m.startsWith("_") ){
       alias ReturnType!(__traits(getMember, T, m)) ret_type;
       result ~= ret_type.stringof ~ " ";
-      result ~= m ~ " ";
-      alias ParameterTypeTuple!(__traits(getMember, T, m)) params;
-      static if (m == "read") {
-        result ~= "(in char[], ubyte[], ulong, long, fuse_file_info*)";
-      } else static if (m == "readdir") {
-	      result ~= "(in char[] , void *, fuse_fill_dir_t, off_t,	fuse_file_info *)";
-      } else {
-        result ~= params.stringof;
-      }
+      result ~= m ~ " " ~ cleanParamsAsString!(T, m);
       static if (__traits(isArithmetic, ret_type)) {
         result ~= " { return -ENOSYS; }";
       } else static if (m == "init") { 
