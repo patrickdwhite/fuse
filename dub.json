@@ -1,6 +1,6 @@
 {
   "name": "fuse",
-  "description": "FUSE (Filesystem in USErspace.",
+  "description": "FUSE (Filesystem in USErspace) D bindings",
   "copyright": "Copyright © 2014, Patrick White",
   "authors": ["patrick@patrickwhite.org"],
   "libs-linux": ["fuse"],
